@@ -1,0 +1,44 @@
+{
+  "engine": {
+    "project": "echo-combine-extension",
+    "commit": "5076f6f879ac38b9f791489f37c9a138a11a2b77"
+  },
+  "providers": {
+    "spotify": {
+      "project": "echo-spotify-extension",
+      "commit": "4f016e049d109dfd15aa0dce0f77360c0802561e",
+      "package": "dev.brahmkshatriya.echo.oneforall.providers.spotify",
+      "entry": "SpotifyExtension"
+    },
+    "deezer": {
+      "project": "echo-deezer-extension",
+      "commit": "d09150929d1cc3e564aa6a8082168ad157b86661",
+      "package": "dev.brahmkshatriya.echo.oneforall.providers.deezer",
+      "entry": "DeezerExtension"
+    },
+    "youtube_music": {
+      "project": "echo-youtube_music-extension",
+      "commit": "4cee26524b576d2e7d0fcbd4c2ea40096b04ab93",
+      "package": "dev.brahmkshatriya.echo.oneforall.providers.youtube_music",
+      "entry": "YoutubeExtension"
+    },
+    "soundcloud": {
+      "project": "echo-soundcloud-extension",
+      "commit": "f7fde9c0a3c8c4cf8285b6d1f8844239e7b1f3c2",
+      "package": "dev.brahmkshatriya.echo.oneforall.providers.soundcloud",
+      "entry": "SoundCloudExtension"
+    },
+    "qobuz": {
+      "project": "echo-qobuz-extension",
+      "commit": "a53ab8e95e6b60d0f0efb038a49fd24e1255dcf1",
+      "package": "dev.brahmkshatriya.echo.oneforall.providers.qobuz",
+      "entry": "QobuzExtension"
+    },
+    "tidal": {
+      "project": "echo-tidal-extension",
+      "commit": "124824c718c6a5078adb9268d0b1836617cf7e7b",
+      "package": "dev.brahmkshatriya.echo.oneforall.providers.tidal",
+      "entry": "TidalExtension"
+    }
+  }
+}

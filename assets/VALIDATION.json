@@ -1,0 +1,14 @@
+{
+  "productionKotlinFiles": 136,
+  "tests": 37,
+  "gradleRun": false,
+  "apkGenerated": false,
+  "installed": false,
+  "realServicePlaybackTested": false,
+  "iconMetadataBytes": 17234,
+  "loginAuditDate": "2026-11-24",
+  "realAccountLoginsTested": false,
+  "spotifyHostTests": 12,
+  "spotifyHostProfile": "spotify-login-v1",
+  "spotifyLoginRequiresUpdatedHost": true
+}
