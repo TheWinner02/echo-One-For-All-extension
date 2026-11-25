@@ -354,7 +354,7 @@ open class CombineEngine : ExtensionClient, MusicExtensionsProvider, GlobalSetti
                         metaTrack.streamables.map { RememberedSource.tag(it, ext.id, metaTrack.id) }
                     } else {
                         try {
-                            findTrackInStreamExtension(metaTrack, ext)?.streamables ?: emptyList()
+                            findTrackInStreamExtension(metaTrack, ext, isDownload)?.streamables ?: emptyList()
                         } catch (cancel: CancellationException) { throw cancel }
                         catch (e: Throwable) {
                             // Continue with the other providers without logging sensitive provider responses.
@@ -399,7 +399,7 @@ open class CombineEngine : ExtensionClient, MusicExtensionsProvider, GlobalSetti
 
     override suspend fun loadFeed(track: Track): Feed<Shelf>? = getMetadataExtension().clientOrNull<TrackClient>()?.loadFeed(track)
 
-    private suspend fun findTrackInStreamExtension(metaTrack: Track, streamExt: MusicExtension): Track? { return try {
+    private suspend fun findTrackInStreamExtension(metaTrack: Track, streamExt: MusicExtension, isDownload: Boolean): Track? { return try {
         val searchClient = streamExt.clientOrNull<SearchFeedClient>() ?: return null
         val trackClient = streamExt.clientOrNull<TrackClient>() ?: return null
 
@@ -446,7 +446,7 @@ open class CombineEngine : ExtensionClient, MusicExtensionsProvider, GlobalSetti
         for ((candidate, _) in scoredCandidates) {
             val loaded = try {
                 withTimeoutOrNull(6000) {
-                    trackClient.loadTrack(candidate, false)
+                    trackClient.loadTrack(candidate, isDownload)
                 }
             } catch (cancel: CancellationException) { throw cancel } catch (_: Exception) { null }
 

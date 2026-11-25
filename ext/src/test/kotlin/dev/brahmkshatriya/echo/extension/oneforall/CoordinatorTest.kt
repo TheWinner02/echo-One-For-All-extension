@@ -2,6 +2,7 @@ package dev.brahmkshatriya.echo.extension.oneforall
 
 import dev.brahmkshatriya.echo.common.clients.*
 import dev.brahmkshatriya.echo.common.models.*
+import dev.brahmkshatriya.echo.common.models.Feed.Companion.toFeed
 import dev.brahmkshatriya.echo.common.settings.*
 import kotlinx.coroutines.*
 import org.junit.Assert.*
@@ -91,6 +92,34 @@ class CoordinatorTest {
         restored.activate(true)
         assertNull((restored.ready("a") as Fake).user)
         assertNotNull((restored.ready("b") as Fake).user)
+    }
+
+    @Test fun matchedProvidersReceiveTheDownloadFlag() = runBlocking {
+        val root = Memory().apply {
+            putString("metadata_extension", "a")
+            putString("stream_extension", "b")
+        }
+        val requests = mutableListOf<Pair<String, Boolean>>()
+        fun provider(id: String) = object : ExtensionClient, TrackClient, SearchFeedClient {
+            override fun setSettings(settings: Settings) = Unit
+            override suspend fun getSettingItems() = emptyList<Setting>()
+            override suspend fun loadTrack(track: Track, isDownload: Boolean): Track {
+                requests += id to isDownload
+                return track.copy(streamables = listOf(Streamable.server(id, 1, id)))
+            }
+            override suspend fun loadStreamableMedia(streamable: Streamable, isDownload: Boolean) = media()
+            override suspend fun loadFeed(track: Track): Feed<Shelf>? = null
+            override suspend fun loadSearchFeed(query: String): Feed<Shelf> =
+                listOf<Shelf>(Shelf.Item(Track("matched", "Fixture", isrc = "fixture-isrc"))).toFeed()
+        }
+        val registry = ProviderRegistry(root, listOf(ProviderSpec("a", "A") { provider("a") }, ProviderSpec("b", "B") { provider("b") }))
+        val engine = dev.brahmkshatriya.echo.oneforall.engine.CombineEngine()
+        engine.setSettings(root)
+        engine.setMusicExtensions(registry.extensions())
+        engine.loadTrack(Track("original", "Fixture", isrc = "fixture-isrc"), true)
+        assertTrue(requests.contains("a" to true))
+        assertTrue(requests.contains("b" to true))
+        assertFalse(requests.any { !it.second })
     }
 
     @Test fun missingRequiredLoginFieldsAreRejected() = runBlocking {

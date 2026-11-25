@@ -15,6 +15,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.coroutines.CancellationException
 import okhttp3.OkHttpClient
 
 class DeezerTrackClient(private val deezerExtension: DeezerExtension, private val api: DeezerApi, private val parser: DeezerParser) {
@@ -37,7 +38,10 @@ class DeezerTrackClient(private val deezerExtension: DeezerExtension, private va
                 if (quality != "128" && quality != "mp3") api.getMediaUrl(track, quality)
                 else api.getMP3MediaUrl(track, quality == "128")
             val mjString = mediaJson.toString()
-            if (mjString.contains("License token has no sufficient rights on requested media")) createStreamableForQuality(track, "128")
+            if (mjString.contains("License token has no sufficient rights on requested media")) {
+                check(quality != "128") { "Requested audio quality is unavailable" }
+                return createStreamableForQuality(track, "128")
+            }
             val trackJsonData = mediaJson["data"]?.jsonArray?.firstOrNull()?.jsonObject
             val mediaIsEmpty = trackJsonData?.get("media")?.jsonArray?.isEmpty() == true
 
@@ -94,6 +98,8 @@ class DeezerTrackClient(private val deezerExtension: DeezerExtension, private va
                 title = qualityTitle,
                 extras = mapOf("key" to Utils.createBlowfishKey(keySourceId))
             )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             when (quality) {
                 "flac" -> createStreamableForQuality(track, "320")
@@ -128,11 +134,17 @@ class DeezerTrackClient(private val deezerExtension: DeezerExtension, private va
             resolvedStreamable.id.toSource().copy(title = title).toMedia()
         } else {
             val contentLength = Utils.getContentLength(resolvedStreamable.id, client)
-            Streamable.InputProvider { start, _ ->
-                Pair(
-                    AudioStreamProvider.openStream(resolvedStreamable, client, start),
-                    contentLength - start
-                )
+            Streamable.InputProvider { start, length ->
+                require(start >= 0 && length >= -1) { "Invalid audio range" }
+                val available = if (contentLength >= 0) (contentLength - start).coerceAtLeast(0) else -1L
+                val requested = when {
+                    length < 0 -> available
+                    available < 0 -> length
+                    else -> minOf(length, available)
+                }
+                if (requested == 0L) Pair(java.io.ByteArrayInputStream(byteArrayOf()), 0L)
+                else Pair(AudioStreamProvider.openStream(resolvedStreamable, client, start,
+                    if (requested < 0) -1 else Math.addExact(start, requested - 1)), requested)
             }.toSource(id = resolvedStreamable.id).copy(title = title).toMedia()
         }
     }

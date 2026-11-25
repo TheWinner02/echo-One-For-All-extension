@@ -54,7 +54,12 @@ internal class SourceRouter(
                 for (candidate in choices) {
                     try {
                         val result = resolve(candidate.copy(extras = candidate.extras - PAYLOAD), download)
-                        if (result is Streamable.Media.Server && result.sources.isNotEmpty()) {
+                        if (result is Streamable.Media.Server && result.sources.isNotEmpty() && result.sources.all { source ->
+                            when (source) {
+                                is Streamable.Source.Http -> source.request.url.isNotBlank()
+                                is Streamable.Source.Raw -> source.streamProvider != null
+                            }
+                        }) {
                             resolved = result
                             break
                         }

@@ -1,5 +1,6 @@
 package dev.brahmkshatriya.echo.oneforall.providers.deezer
 
+import dev.brahmkshatriya.echo.common.helpers.ContinuationCallback.Companion.await
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.security.MessageDigest
@@ -51,10 +52,12 @@ object Utils {
         return cipher.doFinal(chunk)
     }
 
-    fun getContentLength(url: String, client: OkHttpClient): Long {
+    suspend fun getContentLength(url: String, client: OkHttpClient): Long {
         val request = Request.Builder().url(url).head().build()
-        client.newCall(request).execute().use { response ->
-            return response.header("Content-Length")?.toLong() ?: 0L
+        client.newCall(request).await().use { response ->
+            if (response.code == 405 || response.code == 501) return -1L
+            check(response.isSuccessful) { "Audio metadata request failed (HTTP ${response.code})" }
+            return response.header("Content-Length")?.toLongOrNull()?.takeIf { it >= 0 } ?: -1L
         }
     }
 }
