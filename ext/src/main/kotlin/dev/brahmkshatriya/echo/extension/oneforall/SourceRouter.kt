@@ -67,7 +67,10 @@ internal class SourceRouter(
                             break
                         }
                     } catch (cancel: CancellationException) { currentCoroutineContext().ensureActive() }
-                    catch (_: Exception) { /* Try another format before changing service. */ }
+                    catch (e: Exception) {
+                        println("SourceRouter: provider=$provider candidate=${candidate.id} failed: ${e.message}")
+                        e.printStackTrace()
+                    }
                 }
                 true
             }

@@ -31,12 +31,9 @@ class EchoVideoEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
 
     suspend fun getVideo(resolve: Boolean, id: String, playlist: String? = null) = coroutineScope {
         val web = async {
-            if (resolve) {
-                runCatching {
-                    request(webRemix, id, playlist)
-                        .body<YoutubeFormatResponse>().videoDetails.musicVideoType
-                }.getOrNull()
-            } else null
+            if (resolve) request(webRemix, id, playlist)
+                .body<YoutubeFormatResponse>().videoDetails?.musicVideoType
+            else null
         }
         val ios = request(iosContext(), id, playlist).body<YoutubeFormatResponse>()
         ios to web.await()
@@ -47,9 +44,7 @@ class EchoVideoEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
             put("client", buildJsonObject {
                 put("clientName", "IOS")
                 put("clientVersion", "19.34.2")
-                if (!api.visitor_id.isNullOrBlank()) {
-                    put("visitorData", api.visitor_id)
-                }
+                put("visitorData", api.visitor_id)
             })
         })
     }
@@ -58,7 +53,7 @@ class EchoVideoEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
         put("context", buildJsonObject {
             put("client", buildJsonObject {
                 put("clientName", "WEB_REMIX")
-                put("clientVersion", "1.20240909.01.00")
+                put("clientVersion", "1.20220606.03.00")
             })
         })
     }
@@ -68,12 +63,12 @@ class EchoVideoEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
 data class YoutubeFormatResponse(
     val playabilityStatus: PlayabilityStatus? = null,
     val streamingData: StreamingData? = null,
-    val videoDetails: VideoDetails
+    val videoDetails: VideoDetails? = null
 )
 
 @Serializable
 data class PlayabilityStatus(
-    val status: String,
+    val status: String? = null,
     val reason: String? = null,
     val playableInEmbed: Boolean? = null
 )
@@ -82,6 +77,7 @@ data class PlayabilityStatus(
 data class StreamingData(
     val expiresInSeconds: String? = null,
     val hlsManifestUrl: String? = null,
+    val formats: List<AdaptiveFormat> = emptyList(),
     val adaptiveFormats: List<AdaptiveFormat> = emptyList()
 )
 
@@ -91,8 +87,8 @@ data class AdaptiveFormat(
     val url: String? = null,
     val signatureCipher: String? = null,
     val cipher: String? = null,
-    val mimeType: String,
-    val bitrate: Int,
+    val mimeType: String? = null,
+    val bitrate: Long? = null,
     val width: Long? = null,
     val height: Long? = null,
     val initRange: Range? = null,
@@ -128,7 +124,7 @@ data class Range(
 
 @Serializable
 data class VideoDetails(
-    val videoId: String, 
+    val videoId: String? = null, 
     val title: String? = null,
     val lengthSeconds: String? = null,
     val channelId: String? = null,
