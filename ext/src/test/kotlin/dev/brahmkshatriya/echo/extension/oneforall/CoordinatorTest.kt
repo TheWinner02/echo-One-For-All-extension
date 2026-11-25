@@ -122,6 +122,20 @@ class CoordinatorTest {
         assertFalse(requests.any { !it.second })
     }
 
+    @Test fun tidalAudioKeepsItsNativeIdAndDownloadModeThroughTheRouter() = runBlocking {
+        val selected = Streamable.server("581022787", 1411, "Tidal FLAC",
+            mapOf(SourceRouter.PROVIDER to "tidal", "id" to "581022787"))
+        val router = SourceRouter({ stream, download ->
+            assertEquals("581022787", stream.id)
+            assertEquals("581022787", stream.extras["id"])
+            assertEquals("tidal", stream.extras[SourceRouter.PROVIDER])
+            assertTrue(download)
+            assertFalse(stream.extras.containsKey(SourceRouter.PAYLOAD))
+            media()
+        })
+        assertTrue(router.load(router.attach(listOf(selected)).single(), true) is Streamable.Media.Server)
+    }
+
     @Test fun missingRequiredLoginFieldsAreRejected() = runBlocking {
         val registry = ProviderRegistry(Memory(), listOf(ProviderSpec("a", "A", ::Fake)))
         assertTrue(runCatching { registry.login("form:a:login", emptyMap()) }.isFailure)

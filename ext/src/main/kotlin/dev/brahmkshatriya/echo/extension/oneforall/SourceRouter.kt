@@ -50,7 +50,10 @@ internal class SourceRouter(
             // The chosen provider is always retried. Cooling alternatives avoid repeated slow outages.
             if (provider != native.extras[PROVIDER] && (unavailableUntil[provider] ?: 0) > now()) continue
             var resolved: Streamable.Media.Server? = null
-            val finished = withTimeoutOrNull(timeoutMs) {
+            // Preserve the native Tidal resolver's 15-second session/ticket deadline,
+            // including adapter overhead. Other services retain their existing budget.
+            val providerTimeout = if (provider == "tidal" && timeoutMs == 15_000L) 20_000L else timeoutMs
+            val finished = withTimeoutOrNull(providerTimeout) {
                 for (candidate in choices) {
                     try {
                         val result = resolve(candidate.copy(extras = candidate.extras - PAYLOAD), download)
