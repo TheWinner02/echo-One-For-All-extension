@@ -79,7 +79,7 @@ object TokenPool {
                     return@withLock
                 }
                 val json = Json { ignoreUnknownKeys = true }
-                json.parseToJsonElement(response.body?.string().orEmpty()).jsonArray.reversed().mapNotNull { element ->
+                json.parseToJsonElement(response.body.string()).jsonArray.reversed().mapNotNull { element ->
                     val obj = element.jsonObject
                     val token = obj["token"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
                         ?: return@mapNotNull null
@@ -424,7 +424,7 @@ class QobuzExtension(val httpClient: OkHttpClient = OkHttpClient()) : ExtensionC
             .build()
         return httpClient.newCall(req).await().use { resp ->
             if (!resp.isSuccessful) throw ResolverFailure("HTTP ${resp.code}")
-            val body = resp.body?.string().orEmpty()
+            val body = resp.body.string()
             val value = parseStreamResult(body)
             val url = value?.toHttpUrlOrNull()
             url?.toString() ?: throw ResolverFailure("No valid stream URL in response")

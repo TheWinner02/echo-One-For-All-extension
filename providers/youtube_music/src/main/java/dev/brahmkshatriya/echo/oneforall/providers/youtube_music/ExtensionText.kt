@@ -19,7 +19,7 @@ internal object ExtensionText {
         catch (_: java.util.IllegalFormatException) { String.format(locale(), fallback, *arguments) }
     }
 
-    fun country(code: String): String = Locale("", code).getDisplayCountry(locale())
+    fun country(code: String): String = Locale.Builder().setRegion(code).build().getDisplayCountry(locale())
         .takeIf { it.isNotBlank() } ?: code
 
     fun category(id: String): String = when (id.lowercase(Locale.ROOT)) {

@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
 }
 
 dependencies {
@@ -27,19 +26,19 @@ kotlin {
     jvmToolchain(21)
 }
 
-val extType: String by project
-val extId: String by project
-val extClass: String by project
+val extType = project.findProperty("extType")?.toString() ?: ""
+val extId = project.findProperty("extId")?.toString() ?: ""
+val extClass = project.findProperty("extClass")?.toString() ?: ""
 
-val extIconUrl: String? by project
-val extName: String by project
-val extDescription: String? by project
+val extIconUrl = project.findProperty("extIconUrl")?.toString()
+val extName = project.findProperty("extName")?.toString() ?: ""
+val extDescription = project.findProperty("extDescription")?.toString()
 
-val extAuthor: String by project
-val extAuthorUrl: String? by project
+val extAuthor = project.findProperty("extAuthor")?.toString() ?: ""
+val extAuthorUrl = project.findProperty("extAuthorUrl")?.toString()
 
-val extRepoUrl: String? by project
-val extUpdateUrl: String? by project
+val extRepoUrl = project.findProperty("extRepoUrl")?.toString()
+val extUpdateUrl = project.findProperty("extUpdateUrl")?.toString()
 
 val verCode = (project.findProperty("extVersionCode") as? String)?.toIntOrNull()
     ?: runCatching { execute("git", "rev-list", "--count", "HEAD").toInt() }.getOrDefault(1)

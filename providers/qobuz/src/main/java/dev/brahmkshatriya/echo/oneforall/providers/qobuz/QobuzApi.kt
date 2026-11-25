@@ -50,7 +50,7 @@ class QobuzApi(
     suspend fun call(request: Request): String {
         return client.newCall(request).await().use { response ->
             if (!response.isSuccessful) throw IllegalStateException("Qobuz HTTP ${response.code}")
-            response.body?.string().orEmpty()
+            response.body.string()
         }
     }
 
