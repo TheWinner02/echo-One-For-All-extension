@@ -71,7 +71,7 @@ class DeezerExtension : HomeFeedClient, TrackClient, LikeClient, RadioClient,
     }
 
 
-    private val session by lazy { DeezerSession() }
+    internal val session by lazy { DeezerSession() }
     private val api by lazy { DeezerApi(session) }
     private val parser by lazy { DeezerParser(session) }
 

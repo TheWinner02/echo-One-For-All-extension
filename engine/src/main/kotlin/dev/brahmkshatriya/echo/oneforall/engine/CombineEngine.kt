@@ -234,11 +234,15 @@ open class CombineEngine : ExtensionClient, MusicExtensionsProvider, GlobalSetti
         val exts = awaitExtensions()
         if (exts.isEmpty()) return emptyList()
         val result = mutableListOf<MusicExtension>()
-        val metaExt = runCatching { getMetadataExtension() }.getOrNull()
 
         fun findExt(id: String?): MusicExtension? {
             if (id.isNullOrEmpty() || id == "none") return null
-            return exts.find { it.id == id || it.name == id }
+            return exts.find {
+                it.id == id ||
+                it.id.removePrefix("oneforall.") == id ||
+                it.id.removePrefix("oneforall.").equals(id, ignoreCase = true) ||
+                it.name.equals(id, ignoreCase = true)
+            }
         }
 
         // Legacy Migration
@@ -257,14 +261,9 @@ open class CombineEngine : ExtensionClient, MusicExtensionsProvider, GlobalSetti
             findExt(id)?.let { result.add(it) }
         }
 
-        if (metaExt != null && result.none { it.id == metaExt.id }) {
-            result.add(metaExt)
-        }
-
-        for (ext in exts) {
-            if (result.none { it.id == ext.id }) {
-                result.add(ext)
-            }
+        // If no extensions were selected at all, fallback to the first available extension
+        if (result.isEmpty()) {
+            exts.firstOrNull()?.let { result.add(it) }
         }
 
         return result.distinctBy { it.id }
@@ -284,7 +283,12 @@ open class CombineEngine : ExtensionClient, MusicExtensionsProvider, GlobalSetti
             return exts.first()
         }
 
-        val match = exts.find { it.id == selectedValue || it.name == selectedValue }
+        val match = exts.find {
+            it.id == selectedValue ||
+            it.id.removePrefix("oneforall.") == selectedValue ||
+            it.id.removePrefix("oneforall.").equals(selectedValue, ignoreCase = true) ||
+            it.name.equals(selectedValue, ignoreCase = true)
+        }
         if (match != null) return match
 
         val index = selectedValue.toIntOrNull()

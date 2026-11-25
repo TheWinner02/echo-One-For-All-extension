@@ -339,6 +339,10 @@ class QobuzExtension(val httpClient: OkHttpClient = OkHttpClient()) : ExtensionC
     override suspend fun loadTrack(
         track: Track, isDownload: Boolean,
     ): Track {
+        if (resolverUrl.isNullOrBlank() && userAuthToken.isNullOrBlank()) {
+            return track.copy(streamables = emptyList())
+        }
+
         val qualities = if (only320) {
             listOf(Triple(5, 320, "320kbps MP3"))
         } else {

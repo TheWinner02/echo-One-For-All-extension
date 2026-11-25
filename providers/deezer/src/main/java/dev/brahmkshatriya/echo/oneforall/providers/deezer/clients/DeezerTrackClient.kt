@@ -2,6 +2,7 @@ package dev.brahmkshatriya.echo.oneforall.providers.deezer.clients
 
 import dev.brahmkshatriya.echo.oneforall.providers.deezer.ExtensionText
 
+import dev.brahmkshatriya.echo.common.helpers.ContinuationCallback.Companion.await
 import dev.brahmkshatriya.echo.common.models.Streamable
 import dev.brahmkshatriya.echo.common.models.Streamable.Media.Companion.toMedia
 import dev.brahmkshatriya.echo.common.models.Streamable.Source.Companion.toSource
@@ -16,7 +17,10 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import okhttp3.Request
 
 class DeezerTrackClient(private val deezerExtension: DeezerExtension, private val api: DeezerApi, private val parser: DeezerParser) {
 
@@ -36,7 +40,17 @@ class DeezerTrackClient(private val deezerExtension: DeezerExtension, private va
             val currentTrackId = track.id
             val mediaJson =
                 if (quality != "128" && quality != "mp3") api.getMediaUrl(track, quality)
-                else api.getMP3MediaUrl(track, quality == "128")
+                else {
+                    if (deezerExtension.session.credentials.arl.isNotEmpty()) {
+                        try {
+                            api.getMP3MediaUrl(track, quality == "128")
+                        } catch (_: Exception) {
+                            api.getMediaUrl(track, "128")
+                        }
+                    } else {
+                        api.getMediaUrl(track, "128")
+                    }
+                }
             val mjString = mediaJson.toString()
             if (mjString.contains("License token has no sufficient rights on requested media")) {
                 check(quality != "128") { "Requested audio quality is unavailable" }
@@ -49,12 +63,15 @@ class DeezerTrackClient(private val deezerExtension: DeezerExtension, private va
                 mjString.contains("Track token has no sufficient rights on requested media") || mediaIsEmpty -> {
                     val fallBackId = track.extras["FALLBACK_ID"].orEmpty()
                     if (quality == "128") {
-                        val fallbackObject = api.track(fallBackId)
-                        val resultOj = fallbackObject["results"]?.jsonObject!!
-                        val fallBackTrack = parser.run { resultOj.toTrack() }
-                        val fbMediaJson = api.getMP3MediaUrl(fallBackTrack, true)
-                        val url = extractUrlFromJson(fbMediaJson)!!
-                        url to fallBackTrack
+                        val fallbackObject = try { api.track(fallBackId) } catch (_: Exception) { null }
+                        val resultOj = fallbackObject?.get("results")?.jsonObject
+                        val fallBackTrack = resultOj?.let { parser.run { it.toTrack() } }
+                        val fbMediaJson = if (fallBackTrack != null && deezerExtension.session.credentials.arl.isNotEmpty()) {
+                            try { api.getMP3MediaUrl(fallBackTrack, true) } catch (_: Exception) { null }
+                        } else null
+                        val url = fbMediaJson?.let { extractUrlFromJson(it) }
+                            ?: extractUrlFromJson(api.getMediaUrl(track.copy(id = fallBackId), "128"))!!
+                        url to (fallBackTrack ?: track.copy(id = fallBackId))
                     } else {
                         val fallbackParsed = track.copy(id = fallBackId)
                         val fallbackMediaJson = api.getMediaUrl(fallbackParsed, quality)
@@ -67,8 +84,11 @@ class DeezerTrackClient(private val deezerExtension: DeezerExtension, private va
                     val fallbackObject = api.track(currentTrackId)
                     val resultOj = fallbackObject["results"]?.jsonObject!!
                     val fallBackTrack = parser.run { resultOj.toTrack() }
-                    val fbMediaJson = api.getMP3MediaUrl(fallBackTrack, true)
-                    val url = extractUrlFromJson(fbMediaJson)!!
+                    val fbMediaJson = if (deezerExtension.session.credentials.arl.isNotEmpty()) {
+                        try { api.getMP3MediaUrl(fallBackTrack, true) } catch (_: Exception) { null }
+                    } else null
+                    val url = fbMediaJson?.let { extractUrlFromJson(it) }
+                        ?: extractUrlFromJson(api.getMediaUrl(fallBackTrack, "128"))!!
                     url to fallBackTrack
                 }
 
@@ -111,11 +131,16 @@ class DeezerTrackClient(private val deezerExtension: DeezerExtension, private va
     }
 
     suspend fun loadStreamableMedia(streamable: Streamable): Streamable.Media {
-        deezerExtension.handleArlExpiration()
+        if (deezerExtension.session.credentials.arl.isNotEmpty()) {
+            try { deezerExtension.handleArlExpiration() } catch (_: Throwable) {}
+        }
         val resolvedStreamable = if (streamable.id.startsWith(placeholderPrefix)) {
             val info = streamable.id.removePrefix(placeholderPrefix).split(":")
             val trackId = info[0]
             val quality = info.getOrNull(1) ?: "128"
+            if (trackId.isBlank()) {
+                throw IllegalStateException("Track ID is empty in streamable: ${streamable.id}")
+            }
             val newTrack = Track(
                 id = trackId,
                 title = quality,
@@ -152,23 +177,35 @@ class DeezerTrackClient(private val deezerExtension: DeezerExtension, private va
     private val qualityOptions = listOf("flac", "320", "128")
 
     suspend fun loadTrack(track: Track): Track {
-        deezerExtension.handleArlExpiration()
+        if (deezerExtension.session.credentials.arl.isNotEmpty()) {
+            try { deezerExtension.handleArlExpiration() } catch (_: Throwable) {}
+        }
 
         if (track.type == Track.Type.Podcast) {
             return track
         }
 
-        val isMp3Misc = track.extras["FILESIZE_MP3_MISC"]?.let { it != "0" } ?: false
+        val targetTrack = if (track.id.isBlank() && !track.isrc.isNullOrBlank()) {
+            fetchTrackByIsrc(track.isrc!!) ?: track
+        } else {
+            track
+        }
+
+        if (targetTrack.id.isBlank()) {
+            return targetTrack.copy(streamables = emptyList())
+        }
+
+        val isMp3Misc = targetTrack.extras["FILESIZE_MP3_MISC"]?.let { it != "0" } ?: false
 
         val streamables = if (isMp3Misc) {
             listOf(
                 Streamable.server(
-                    id = "$placeholderPrefix${track.id}:mp3",
+                    id = "$placeholderPrefix${targetTrack.id}:mp3",
                     quality = 0,
                     title = "MP3",
                     extras = mapOf(
-                        "TRACK_TOKEN" to track.extras["TRACK_TOKEN"].orEmpty(),
-                        "FALLBACK_ID" to track.extras["FALLBACK_ID"].orEmpty()
+                        "TRACK_TOKEN" to targetTrack.extras["TRACK_TOKEN"].orEmpty(),
+                        "FALLBACK_ID" to targetTrack.extras["FALLBACK_ID"].orEmpty()
                     )
                 )
             )
@@ -187,19 +224,41 @@ class DeezerTrackClient(private val deezerExtension: DeezerExtension, private va
                     else -> "UNKNOWN"
                 }
                 Streamable.server(
-                    id = "$placeholderPrefix${track.id}:$quality",
+                    id = "$placeholderPrefix${targetTrack.id}:$quality",
                     quality = qualityValue,
                     title = qualityTitle,
                     extras = mapOf(
-                        "TRACK_TOKEN" to track.extras["TRACK_TOKEN"].orEmpty(),
-                        "FALLBACK_ID" to track.extras["FALLBACK_ID"].orEmpty()
+                        "TRACK_TOKEN" to targetTrack.extras["TRACK_TOKEN"].orEmpty(),
+                        "FALLBACK_ID" to targetTrack.extras["FALLBACK_ID"].orEmpty()
                     )
                 )
             }
         }
-        return track.copy(
+        return targetTrack.copy(
             streamables = streamables
         )
+    }
+
+    private suspend fun fetchTrackByIsrc(isrc: String): Track? = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("https://api.deezer.com/track/isrc:$isrc").build()
+            client.newCall(request).await().use { response ->
+                if (!response.isSuccessful) return@withContext null
+                val body = response.body.string()
+                val json = api.decodeJson(body)
+                val id = json["id"]?.jsonPrimitive?.content ?: return@withContext null
+                val title = json["title"]?.jsonPrimitive?.content ?: ""
+                val trackToken = json["track_token"]?.jsonPrimitive?.content.orEmpty()
+                Track(
+                    id = id,
+                    title = title,
+                    isrc = isrc,
+                    extras = mapOf("TRACK_TOKEN" to trackToken)
+                )
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private val placeholderPrefix = "dzp:"

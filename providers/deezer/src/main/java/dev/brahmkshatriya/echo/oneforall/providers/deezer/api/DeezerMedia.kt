@@ -67,9 +67,12 @@ class DeezerMedia(private val deezerApi: DeezerApi, private val clientNP: OkHttp
             else -> arrayOf("MP3_320")
         }
 
+        val trackNumericId = track.id.filter { it.isDigit() }.toLongOrNull()
+            ?: throw IllegalArgumentException("Invalid track ID: ${track.id}")
+
         val requestBody = deezerApi.encodeJson {
             put("formats", buildJsonArray { formats.forEach { add(it) } })
-            put("ids", buildJsonArray { add(track.id.toLong()) })
+            put("ids", buildJsonArray { add(trackNumericId) })
         }.toRequestBody("application/json; charset=utf-8".toMediaType())
 
         val request = Request.Builder()

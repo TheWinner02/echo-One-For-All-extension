@@ -31,9 +31,12 @@ class EchoVideoEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
 
     suspend fun getVideo(resolve: Boolean, id: String, playlist: String? = null) = coroutineScope {
         val web = async {
-            if (resolve) request(webRemix, id, playlist)
-                .body<YoutubeFormatResponse>().videoDetails.musicVideoType
-            else null
+            if (resolve) {
+                runCatching {
+                    request(webRemix, id, playlist)
+                        .body<YoutubeFormatResponse>().videoDetails.musicVideoType
+                }.getOrNull()
+            } else null
         }
         val ios = request(iosContext(), id, playlist).body<YoutubeFormatResponse>()
         ios to web.await()
@@ -44,7 +47,9 @@ class EchoVideoEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
             put("client", buildJsonObject {
                 put("clientName", "IOS")
                 put("clientVersion", "19.34.2")
-                put("visitorData", api.visitor_id)
+                if (!api.visitor_id.isNullOrBlank()) {
+                    put("visitorData", api.visitor_id)
+                }
             })
         })
     }
@@ -53,7 +58,7 @@ class EchoVideoEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
         put("context", buildJsonObject {
             put("client", buildJsonObject {
                 put("clientName", "WEB_REMIX")
-                put("clientVersion", "1.20220606.03.00")
+                put("clientVersion", "1.20240909.01.00")
             })
         })
     }
