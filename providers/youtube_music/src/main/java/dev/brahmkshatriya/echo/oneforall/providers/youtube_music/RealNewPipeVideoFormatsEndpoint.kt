@@ -113,7 +113,7 @@ class RealNewPipeVideoFormatsEndpoint {
 
         val videoFormats = videoOnlyStreams.mapNotNull { videoStream ->
                 val itag = videoStream.itag
-                val urlStr = videoStream.content?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                val urlStr = videoStream.content.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
                 val height = videoStream.height
                 val fps = videoStream.fps
                 
@@ -139,7 +139,7 @@ class RealNewPipeVideoFormatsEndpoint {
             .filter { it.isUrl && !it.content.isNullOrEmpty() && it.itag > 0 }
             .mapNotNull { audioStream ->
                 val itag = audioStream.itag
-                val urlStr = audioStream.content?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                val urlStr = audioStream.content.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
                 
                 val mediaFormat = audioStream.format
                 val mimeType = mediaFormat?.mimeType ?: "audio/unknown"
@@ -219,7 +219,7 @@ class RealNewPipeVideoFormatsEndpoint {
 
         val muxedFormats = muxedStreams.mapNotNull { videoStream ->
             val itag = videoStream.itag
-            val urlStr = videoStream.content?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            val urlStr = videoStream.content.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
             val height = videoStream.height
             val fps = videoStream.fps
 
