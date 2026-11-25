@@ -76,3 +76,25 @@ Il provider Spotify incorporato ora richiede il profilo di browser `spotify-logi
 Il profilo mantiene lo user agent Chrome 131 mobile già utilizzato. La pagina iniziale ritorna esplicitamente a `open.spotify.com`. Echo attende il completamento della cancellazione dei cookie prima di caricare la pagina, supporta i popup di autenticazione e i cookie di terze parti, poi combina i cookie dei tre domini Spotify quando compare una sessione `sp_dc`. Il profilo remoto continua a essere validato dall'estensione prima di salvare l'account. La diagnostica del browser registra soltanto il dominio e lo stato HTTP, senza URL completi, dati dei moduli, header o cookie.
 
 Verifica locale: compilazione isolata riuscita; 37 test dell'estensione e 12 test del browser Echo superati. La prova di autenticazione con un account reale è ancora da effettuare sul telefono. Non è stato modificato il progetto dell'estensione Spotify originale. Non sono state eseguite build Gradle o installazioni dall'agente.
+
+
+## Recupero della sessione SoundCloud
+
+Il browser SoundCloud di One For All richiede ora il profilo `soundcloud-login-v1` di Echo. Occorre aggiornare entrambi i progetti; l'estensione SoundCloud separata e gli altri progetti non vengono modificati.
+
+Il profilo riconosce anche le pagine personali e la navigazione SPA, non solo gli URL feed/discover. Durante il login verifica i cookie delle origini SoundCloud, le sole chiavi di sessione note `oauth_token`/`auth_token` del sito e le richieste autenticate `/me` verso i due host API SoundCloud. Le richieste del profilo possono fornire anche il client_id pubblico corrente. Non vengono raccolti dati dei moduli, password o corpi delle richieste di autenticazione; nessun valore di sessione viene stampato nei log.
+
+Il browser rimane aperto finché il provider non verifica un account reale. Token anonimi/rifiutati non creano profili fittizi e non chiudono prematuramente il login. Il provider prova il proprio endpoint web e, se la sessione è rifiutata, quello pubblico `/me`; gli errori HTTP 429 non provocano tentativi immediati sul secondo endpoint. Token e client pubblico verificati vengono salvati attraverso la transazione di accesso esistente. L'accesso manuale tramite OAuth token è mantenuto.
+
+Riferimento per la verifica del profilo: https://developers.soundcloud.com/docs/api/guide#accessing-resources . Il flusso qui mantiene la sessione del browser preesistente; non viene presentato come una nuova applicazione OAuth registrata.
+
+Verifica locale: compilazione isolata riuscita, 50 test dell'estensione e 21 test del browser superati. Include cookie alternativi/codificati, sessioni rifiutate, client pubblico, account vuoti, disconnessione, navigazione SPA e regressioni degli altri provider. La conferma con l'account reale sul telefono resta da effettuare. Nessuna build Gradle o installazione è stata eseguita dall'agente.
+
+
+### Correzione verificata sul percorso mobile
+
+La diagnosi ADB sulla WebView reale ha rilevato `m.soundcloud.com`, con `oauth_token` limitato al dominio mobile, e richieste profilo a `api-mobi.soundcloud.com`. Il precedente elenco dei domini non includeva questi due host e impediva il rilevamento, pur con accesso completato nel sito.
+
+Il browser include ora il dominio mobile tra le origini dei cookie e conserva l'origine mobile nel passaggio al provider. Il provider può verificare il profilo sul servizio mobile e ripiegare sugli endpoint esistenti se quello mobile è assente o rifiuta l'accesso. La scoperta tardiva del client_id consente di ritentare la stessa sessione, senza bloccarla per il primo tentativo con un client precedente. Sono supportati anche cookie con virgolette codificate.
+
+Esito locale: 52 test dell'estensione e 23 test del browser. La presenza del cookie e l'origine mobile sono state verificate sul dispositivo; la chiusura automatica completa con questa nuova build deve ancora essere confermata dopo l'aggiornamento di Echo e One For All. Nessun valore di sessione è stato riportato o salvato negli artefatti diagnostici.

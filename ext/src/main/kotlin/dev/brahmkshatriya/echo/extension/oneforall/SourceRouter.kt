@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
 /** Resolver failures are local to one service; cancellation always belongs to the caller. */
 internal class SourceRouter(
     private val resolve: suspend (Streamable, Boolean) -> Streamable.Media,
-    private val timeoutMs: Long = 6_000,
+    private val timeoutMs: Long = 15_000,
     private val now: () -> Long = { System.nanoTime() / 1_000_000 }
 ) {
     companion object {

@@ -187,7 +187,7 @@ class LoginTest {
     @Test fun allNativeAccountMethodsAreExposed() {
         val registry = ProviderRegistry(Memory())
         val keys = registry.forms().map { it.key }.toSet()
-        assertEquals(setOf("browser:spotify", "form:spotify:cookie", "browser:deezer", "form:deezer:userPass", "form:deezer:manual", "browser:youtube_music", "browser:soundcloud", "form:qobuz:credentials", "form:qobuz:token"), keys)
+        assertEquals(setOf("browser:spotify", "form:spotify:cookie", "browser:deezer", "form:deezer:userPass", "form:deezer:manual", "browser:youtube_music", "browser:soundcloud", "form:soundcloud:token", "form:qobuz:credentials", "form:qobuz:token"), keys)
     }
     @Test fun inputFieldsHaveUniqueKeysAcrossServicesAndForms() {
         val registry = ProviderRegistry(Memory(), listOf("a", "b").map { id -> ProviderSpec(id, id) { FormClient { _, _, _ -> listOf(user) } } })

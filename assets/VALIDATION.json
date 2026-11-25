@@ -1,6 +1,6 @@
 {
-  "productionKotlinFiles": 136,
-  "tests": 37,
+  "productionKotlinFiles": 137,
+  "tests": 52,
   "gradleRun": false,
   "apkGenerated": false,
   "installed": false,
@@ -10,5 +10,11 @@
   "realAccountLoginsTested": false,
   "spotifyHostTests": 12,
   "spotifyHostProfile": "spotify-login-v1",
-  "spotifyLoginRequiresUpdatedHost": true
+  "spotifyLoginRequiresUpdatedHost": true,
+  "hostLoginTests": 23,
+  "soundCloudHostProfile": "soundcloud-login-v1",
+  "soundCloudLoginRequiresUpdatedHost": true,
+  "soundCloudMobileOriginObservedOnDevice": true,
+  "soundCloudMobileSessionCookiePresent": true,
+  "soundCloudUpdatedLoginCompletionVerified": false
 }

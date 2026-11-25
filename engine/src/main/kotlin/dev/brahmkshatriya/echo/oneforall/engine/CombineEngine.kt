@@ -261,6 +261,12 @@ open class CombineEngine : ExtensionClient, MusicExtensionsProvider, GlobalSetti
             result.add(metaExt)
         }
 
+        for (ext in exts) {
+            if (result.none { it.id == ext.id }) {
+                result.add(ext)
+            }
+        }
+
         return result.distinctBy { it.id }
     }
 
@@ -328,9 +334,9 @@ open class CombineEngine : ExtensionClient, MusicExtensionsProvider, GlobalSetti
         val remembered = RememberedSource.choice(track, metaExt.id)
 
         val allStreamables = coroutineScope {
-            val matching = kotlinx.coroutines.sync.Semaphore(2)
+            val matching = kotlinx.coroutines.sync.Semaphore(streamExts.size.coerceAtLeast(6))
             val deferreds = streamExts.mapIndexed { index, ext ->
-                async { matching.withPermit { withTimeoutOrNull(7_000) {
+                async { matching.withPermit { withTimeoutOrNull(12_000) {
                     val streamables = if (remembered?.provider == ext.id) {
                         // Resolve the exact stored recording. Never silently substitute a fuzzy match.
                         try {
@@ -402,7 +408,7 @@ open class CombineEngine : ExtensionClient, MusicExtensionsProvider, GlobalSetti
         if (query.isEmpty()) return null
 
         val feed = try {
-            withTimeoutOrNull(5000) {
+            withTimeoutOrNull(8000) {
                 searchClient.loadSearchFeed(query)
             } ?: return null
         } catch (cancel: CancellationException) { throw cancel } catch (_: Exception) { return null }
@@ -439,7 +445,7 @@ open class CombineEngine : ExtensionClient, MusicExtensionsProvider, GlobalSetti
 
         for ((candidate, _) in scoredCandidates) {
             val loaded = try {
-                withTimeoutOrNull(5000) {
+                withTimeoutOrNull(6000) {
                     trackClient.loadTrack(candidate, false)
                 }
             } catch (cancel: CancellationException) { throw cancel } catch (_: Exception) { null }
