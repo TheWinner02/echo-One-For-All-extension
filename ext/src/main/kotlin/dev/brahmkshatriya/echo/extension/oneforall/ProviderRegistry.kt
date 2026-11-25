@@ -160,11 +160,12 @@ internal class ProviderRegistry(private val root: Settings, specs: List<Provider
         ) + (if (c is LoginClient) listOf(
             SettingItem("Account", "account.${p.spec.id}", p.savedAccount()?.name ?: "Not connected"),
             SettingOnClick("Disconnect ${p.spec.name}", "disconnect.${p.spec.id}", "Remove this service's saved account.") {
-                p.settings.putString("account.v1", null)
-                p.settings.putString("auth_token", null); p.settings.putString("userAuthToken", null)
-                (c as? LoginClient)?.setLoginUser(null)
-                if (providers.values.none { it.savedAccount() != null }) {
-                    authenticated = false
+                loginMutex.withLock {
+                    p.settings.putString("account.v1", null)
+                    p.settings.putString("auth_token", null)
+                    p.settings.putString("userAuthToken", null)
+                    c.setLoginUser(null)
+                    if (providers.values.none { it.savedAccount() != null }) authenticated = false
                 }
             }
         ) else emptyList()) + c.getSettingItems().filterNot { it is SettingTextInput && it.key in setOf("auth_token", "userAuthToken") }.map(p.settings::expose))

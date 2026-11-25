@@ -76,6 +76,23 @@ class CoordinatorTest {
         registry.activate(true); registry.ready("a")
         assertEquals("native", next.user?.id)
     }
+    @Test fun disconnectingOneServicePreservesTheOtherAcrossRestart() = runBlocking {
+        val root = Memory()
+        val specs = listOf(ProviderSpec("a", "A", ::Fake), ProviderSpec("b", "B", ::Fake))
+        val registry = ProviderRegistry(root, specs)
+        registry.login("form:a:login", mapOf("field:a:login:password" to "fixture"))
+        registry.login("form:b:login", mapOf("field:b:login:password" to "fixture"))
+        val section = registry.settings().filterIsInstance<SettingCategory>().first { it.key == "section.a" }
+        section.items.filterIsInstance<SettingOnClick>().single { it.key == "disconnect.a" }.onClick()
+        assertNull(root.getString("provider.a.account.v1"))
+        assertNotNull(root.getString("provider.b.account.v1"))
+        assertEquals("B", registry.publicAccount()?.subtitle)
+        val restored = ProviderRegistry(root, specs)
+        restored.activate(true)
+        assertNull((restored.ready("a") as Fake).user)
+        assertNotNull((restored.ready("b") as Fake).user)
+    }
+
     @Test fun missingRequiredLoginFieldsAreRejected() = runBlocking {
         val registry = ProviderRegistry(Memory(), listOf(ProviderSpec("a", "A", ::Fake)))
         assertTrue(runCatching { registry.login("form:a:login", emptyMap()) }.isFailure)
