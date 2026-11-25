@@ -17,12 +17,15 @@ import dev.brahmkshatriya.echo.oneforall.providers.deezer.api.DeezerShow
 import dev.brahmkshatriya.echo.oneforall.providers.deezer.api.DeezerTrack
 import dev.brahmkshatriya.echo.oneforall.providers.deezer.api.DeezerUtil
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -154,16 +157,26 @@ class DeezerApi(private val session: DeezerSession) {
         }.build()
     }
 
+    private val tokenMutex = Mutex()
+
     private fun getHeaders(method: String? = ""): Headers {
         return staticHeaders.newBuilder().apply {
             if (method != "user.getArl") {
-                add("Cookie", "arl=$arl; sid=$sid")
+                if (arl.isNotEmpty()) {
+                    add("Cookie", "arl=$arl; sid=$sid")
+                } else if (sid.isNotEmpty()) {
+                    add("Cookie", "sid=$sid")
+                }
             } else {
-                add("Cookie", "sid=$sid")
+                if (sid.isNotEmpty()) {
+                    add("Cookie", "sid=$sid")
+                }
             }
             add("Accept-Language", "$language,*")
             add("Content-Language", language)
-            add("x-deezer-user", userId)
+            if (userId.isNotEmpty()) {
+                add("x-deezer-user", userId)
+            }
         }.build()
     }
 
@@ -173,6 +186,13 @@ class DeezerApi(private val session: DeezerSession) {
         gatewayInput: String? = "",
         np: Boolean = false
     ): JsonObject = withContext(Dispatchers.IO) {
+        if (method != "deezer.getUserData" && token.isEmpty()) {
+            tokenMutex.withLock {
+                if (token.isEmpty()) {
+                    runCatching { callApi("deezer.getUserData") }
+                }
+            }
+        }
         val url = HttpUrl.Builder()
             .scheme("https").host("www.deezer.com")
             .addPathSegments("ajax/gw-light.php")
@@ -214,25 +234,38 @@ class DeezerApi(private val session: DeezerSession) {
                         session.updateCredentials(sid = it.second.substringAfter("sid=").substringBefore(";"))
                     }
                 }
+                val checkForm = result["results"]?.jsonObject?.get("checkForm")?.jsonPrimitive?.contentOrNull
+                if (!checkForm.isNullOrEmpty()) {
+                    session.updateCredentials(token = checkForm)
+                }
             }
 
             when(result["error"]) {
                 is JsonObject -> {
                     if (result["error"]?.jsonObject["VALID_TOKEN_REQUIRED"]?.jsonPrimitive?.content?.contains("Invalid CSRF token") == true) {
                         if (email.isEmpty() && pass.isEmpty()) {
+                            if (arl.isEmpty()) {
+                                session.updateCredentials(token = "")
+                                val refreshed = tokenMutex.withLock {
+                                    if (token.isEmpty()) {
+                                        runCatching { callApi("deezer.getUserData") }.isSuccess
+                                    } else true
+                                }
+                                if (refreshed && token.isNotEmpty()) {
+                                    return@withContext callApi(method, paramsBuilder, gatewayInput, np)
+                                }
+                            }
                             session.isArlExpired(true)
                             throw Exception(ExtensionText.get("providers.please_re_login_best_use_user_pass_method_d121f9", "Please re-login (Best use User + Pass method)"))
                         } else {
                             session.isArlExpired(false)
                             val userList = DeezerExtension().onLogin("userPass", mapOf(Pair("email", email), Pair("pass", pass)))
                             DeezerExtension().setLoginUser(userList.first())
-                            return@withContext callApi(method, paramsBuilder, gatewayInput)
+                            return@withContext callApi(method, paramsBuilder, gatewayInput, np)
                         }
                     }
                 }
-                else -> {
-                    null
-                }
+                else -> {}
             }
             result
         }
